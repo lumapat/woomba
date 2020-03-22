@@ -4,18 +4,20 @@ import argparse
 import os
 from shutil import copyfile
 
+def find_all_files(root):
+    all_files = []
+    for root, dirs, files in os.walk(root):
+        all_files += files
+        for d in dirs:
+            # Change to regex ignore list
+            files += find_all_files(os.path.join(root, d))
+    return all_files
+
 def find_sync_files(target_dir, src_dir):
     """ Return a list of files to be added and deleted """
-    def find_all_files(root):
-        all_files = []
-        for root, dirs, files in os.walk(root):
-            all_files += files
-            for d in dirs:
-                # Change to regex ignore list
-                files += find_all_files(os.path.join(root, d))
-        return all_files
     
-    return find_all_files(src_dir)
+    src_files = find_all_files(src_dir)
+    target_files = find_all_files(target_dir)
 
 def execute_changes(changelist):
     pass
