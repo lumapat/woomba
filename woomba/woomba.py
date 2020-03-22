@@ -2,29 +2,9 @@
 
 import argparse
 import os
-from shutil import copyfile
 
-def find_all_files(root):
-    all_files = []
-    for root, dirs, files in os.walk(root):
-        all_files += files
-        for d in dirs:
-            # Change to regex ignore list
-            files += find_all_files(os.path.join(root, d))
-    return all_files
+import fileteleporter as ftp
 
-def find_sync_files(target_dir, src_dir):
-    """ Return a list of files to be added and deleted """
-    
-    src_files = find_all_files(src_dir)
-    target_files = find_all_files(target_dir)
-
-def execute_changes(changelist):
-    pass
-
-def get_changelist_str(description, files, line_format=None):
-    """ Return string summarizing changes """
-    return description
 
 def get_argument_parser():
     parser = argparse.ArgumentParser()
@@ -37,6 +17,7 @@ def get_argument_parser():
     parser.add_argument("-v", "--verbose", action="store_true", help="enable verbose logging")
     return parser
 
+
 def main():
     # First cut -- sync to backup
     parser = get_argument_parser()
@@ -48,6 +29,7 @@ def main():
         print(str(sync_files))
     else:
         print("")
+
 
 if __name__ == "__main__":
     main()
