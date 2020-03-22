@@ -1,26 +1,63 @@
-from shutil import copyfile
+from enum import Enum
+from filecmp import dircmp
+from shutil import copy2, copytree, rmtree
 from typing import Any, Dict, List
 
 import os
 
-def diff_directories(
-    base_contents: Dict[str, List[str]],
-    target_contents: Dict[str, List[str]],
+def get_all_files(root: str):
+    """ Get all files per directory """
+    return {d: set(files) for d, _, files in os.walk(root)}
+
+
+def shallow_diff_directories(base_dir: str, target_dir: str):
+    """ Shallow compare contents of two directories (recursively)
+
+        Added files are files only in target directory.
+        Removed files are files only in base directory.
+    """
+    return dircmp(base_dir, target_dir)
+
+
+def sync_contents(
+    src_dir: str,
+    target_dir: str,
+    operations: Dict[str, List[str]]
 ):
-    """ Return list of differences between directories """
+    """ Sync contents of into a directory """
 
-    base_contents_keys = set(base_contents.keys()) if base_contents else set()
-    target_contents_keys = set(target_contents.keys()) if target_contents else set()
+    # 1st arg is unused
+    def rmdir(_, d):
+        shutil.rmtree(d)
 
-    deleted_contents_keys = base_contents_keys - target_contents_keys
-    added_contents_keys = target_contents_keys - base_contents_keys
-    same_contents_keys = base_contents_keys & target_contents_keys
+    def rmfile(_, f):
+        os.remove(f)
 
-    return {
-        "added": added_contents_keys,
-        "deleted": deleted_contents_keys,
+    op_map = {
+        "copy-file": shutil.copy2,
+        "copy-dir": shutil.copytree,
+        "rm-file": rmfile,
+        "rm-dir": rmdir
     }
 
+    failed_ops = 0
+    total_ops = 0
 
-def find_all_files(root: str):
-    return {d: set(files) for d, _, files in os.walk(root)}
+    for op in operations:
+        contents = operations[op]
+        contents.sort()
+
+        # TODO: Insert progress bar here
+        for c in contents:
+            try:
+                op_map[op](
+                    os.path.join(src_dir, c),
+                    os.path.join(target_dir, c)
+                )
+            except Exception as e:
+                failed_ops += 1
+                print(f"Error when {op} on {c}: {e}")
+            
+            total_ops += 1
+
+    print(f"Completed {total_ops - failed_ops} out of {total_ops} operations!")
