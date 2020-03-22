@@ -19,6 +19,41 @@ def shallow_diff_directories(base_dir: str, target_dir: str):
     return dircmp(base_dir, target_dir)
 
 
+def generate_sync_operations(dir_comp: dircmp):
+    """ TODO Description
+
+        Left is base and right is target
+    """
+
+    # Operation names need to be in sync with sync_contents()
+    # TODO: Replace with defaultdict
+    operations = {
+        "copy-file": [],
+        "copy-dir": [],
+        "rm-file": [],
+        "rm-dir": []
+    }
+
+    for o in dir_comp.left_only:
+        if os.path.isdir(o):
+            operations["copy-dir"].append(o)
+        else:
+            operations["copy-file"].append(o)
+
+    for o in dir_comp.right_only:
+        if os.path.isdir(o):
+            operations["rm-dir"].append(o)
+        else:
+            operations["rm-file"].append(o)
+
+    for d in dir_comp.subdirs:
+        subops = generate_sync_operations(d)
+        for s in subops:
+            operations[s] += subops[s]
+
+    return operations
+
+
 def sync_contents(
     src_dir: str,
     target_dir: str,

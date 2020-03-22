@@ -3,17 +3,19 @@
 import argparse
 import os
 
-import fileteleporter as ftp
+from pprint import PrettyPrinter
+
+from woomba import fileteleporter as ftp
 
 
 def get_argument_parser():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("target_dir", metavar="target-dir", type=str, help="directory to sync files to")
     parser.add_argument("src_dir", metavar="src-dir", type=str, help="directory to sync files from")
-    parser.add_argument("-i", "--interactive", action="store_true", help="require confirmation before adding/deleting files")
-    parser.add_argument("-l", "--list-changes", action="store_true", help="list changes that would be made")
+    parser.add_argument("target_dir", metavar="target-dir", type=str, help="directory to sync files to")
     parser.add_argument("-a", "--add-only", action="store_true", help="perform only copy operations (no deletions)")
+    # parser.add_argument("-i", "--interactive", action="store_true", help="require confirmation before adding/deleting files")
+    parser.add_argument("-n", "--no-commit", action="store_true", help="do not make any changes and print out operations that will be performed")
     parser.add_argument("-v", "--verbose", action="store_true", help="enable verbose logging")
     return parser
 
@@ -23,12 +25,18 @@ def main():
     parser = get_argument_parser()
     args = parser.parse_args()
 
-    sync_files = find_sync_files(args.target_dir, args.src_dir)
+    if not os.path.isdir(args.src_dir) or not os.path.isdir(args.target_dir):
+        print("Forgeddaboutit")
+        return
 
-    if args.list_changes:
-        print(str(sync_files))
+    dir_comp = ftp.shallow_diff_directories(args.src_dir, args.target_dir)
+    operations = ftp.generate_sync_operations(dir_comp)
+
+    if args.no_commit:
+        print(str(operations))
     else:
-        print("")
+        print("Not supported yet!")
+        
 
 
 if __name__ == "__main__":
