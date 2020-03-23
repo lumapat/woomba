@@ -5,53 +5,69 @@ from typing import Any, Dict, List
 
 import os
 
-def get_all_files(root: str):
-    """ Get all files per directory """
-    return {d: set(files) for d, _, files in os.walk(root)}
 
-
-def shallow_diff_directories(base_dir: str, target_dir: str):
-    """ Shallow compare contents of two directories (recursively)
-
-        Added files are files only in target directory.
-        Removed files are files only in base directory.
-    """
-    return dircmp(base_dir, target_dir)
-
-
-def generate_sync_operations(dir_comp: dircmp):
+def generate_sync_operations(base_dir: str, target_dir: str):
     """ TODO Description
 
         Left is base and right is target
     """
 
+    dir_comp = dircmp(base_dir, target_dir)
+
     # Operation names need to be in sync with sync_contents()
     # TODO: Replace with defaultdict
     operations = {
-        "copy-file": [],
-        "copy-dir": [],
-        "rm-file": [],
-        "rm-dir": []
+        "copy": [os.path.join(base_dir, o) for o in dir_comp.left_only],
+        "remove": [os.path.join(target_dir, o) for o in dir_comp.right_only]
     }
 
-    for o in dir_comp.left_only:
-        if os.path.isdir(o):
-            operations["copy-dir"].append(o)
-        else:
-            operations["copy-file"].append(o)
-
-    for o in dir_comp.right_only:
-        if os.path.isdir(o):
-            operations["rm-dir"].append(o)
-        else:
-            operations["rm-file"].append(o)
-
     for d in dir_comp.subdirs:
-        subops = generate_sync_operations(d)
+        subops = generate_sync_operations(
+            os.path.join(base_dir, d),
+            os.path.join(target_dir, d))
         for s in subops:
             operations[s] += subops[s]
 
     return operations
+
+
+def _remove_object(_, path: str):
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    else:
+        os.remove(path)
+
+def _copy_object(src: str, target: str):
+    if os.path.isdir(src):
+        shutil.copytree(src, target)
+    else:
+        shutil.copy2(src, target)
+
+def process_contents(
+    src_dir: str,
+    target_dir: str,
+    contents: List[str],
+    operation
+):
+    failed_ops = 0
+    total_ops = 0
+
+    contents.sort()
+
+    # TODO: Insert progress bar here
+    for c in contents:
+        try:
+            operation(
+                os.path.join(src_dir, c),
+                os.path.join(target_dir, c)
+            )
+        except Exception as e:
+            failed_ops += 1
+            print(f"Error when {op} on {c}: {e}")
+        
+        total_ops += 1
+
+    return failed_ops, total_ops
 
 
 def sync_contents(
@@ -61,38 +77,20 @@ def sync_contents(
 ):
     """ Sync contents of into a directory """
 
-    # 1st arg is unused
-    def rmdir(_, d):
-        shutil.rmtree(d)
+    if "copy" in operations:
+        failed_copies, total_copies = process_contents(
+            src_dir,
+            target_dir,
+            operations["copy"],
+            _copy_object
+        )
+        print(f"Successfully copied {total_copies - failed_copies} out of {total_copies} items!")
 
-    def rmfile(_, f):
-        os.remove(f)
-
-    op_map = {
-        "copy-file": shutil.copy2,
-        "copy-dir": shutil.copytree,
-        "rm-file": rmfile,
-        "rm-dir": rmdir
-    }
-
-    failed_ops = 0
-    total_ops = 0
-
-    for op in operations:
-        contents = operations[op]
-        contents.sort()
-
-        # TODO: Insert progress bar here
-        for c in contents:
-            try:
-                op_map[op](
-                    os.path.join(src_dir, c),
-                    os.path.join(target_dir, c)
-                )
-            except Exception as e:
-                failed_ops += 1
-                print(f"Error when {op} on {c}: {e}")
-            
-            total_ops += 1
-
-    print(f"Completed {total_ops - failed_ops} out of {total_ops} operations!")
+    if "remove" in operations:
+        failed_removals, total_removals = process_contents(
+            src_dir,
+            target_dir,
+            operations["remove"],
+            _remove_object
+        )
+        print(f"Successfully removed {total_removals - failed_removals} out of {total_removals} items!")

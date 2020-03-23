@@ -24,20 +24,19 @@ def main():
     # First cut -- sync to backup
     parser = get_argument_parser()
     args = parser.parse_args()
+    pp = PrettyPrinter(indent=4)
 
     if not os.path.isdir(args.src_dir) or not os.path.isdir(args.target_dir):
         print("Forgeddaboutit")
         return
 
-    dir_comp = ftp.shallow_diff_directories(args.src_dir, args.target_dir)
-    operations = ftp.generate_sync_operations(dir_comp)
+    operations = ftp.generate_sync_operations(args.src_dir, args.target_dir)
 
     if args.no_commit:
-        print(str(operations))
+        pp.pprint(operations)
     else:
         print("Not supported yet!")
         
-
 
 if __name__ == "__main__":
     main()
